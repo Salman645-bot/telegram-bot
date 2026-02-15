@@ -1,76 +1,116 @@
 import os
-import time
 import telebot
 import requests
+import stripe
+from flask import Flask
+from threading import Thread
+import time
 
+# --- Flask Server (Railway ko "Active" rakhne ke liye) ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is alive!"
+
+def run():
+    # Railway PORT variable use karta hai, default 8080
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# --- Setup ---
+# Railway ke Variables mein TOKEN hona chahiye
 API_TOKEN = os.getenv("TOKEN")
-
-if not API_TOKEN:
-    print("❌ TOKEN not found!")
-    exit()
-
 bot = telebot.TeleBot(API_TOKEN, parse_mode="HTML")
 
+# Tumhari Live Stripe Key (Already added)
+stripe.api_key = "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"
 
+# --- Welcome Message (/start) ---
 @bot.message_handler(commands=['start'])
 def start_message(message):
-    bot.reply_to(
-        message,
-        "<b>👋 Welcome to BIN Lookup Bot</b>\n\n"
-        "Send a <b>6 digit BIN</b>\n"
-        "Example: <code>457173</code>"
+    welcome = (
+        "<b>👋 Welcome Janu! Bot Full Active Hai.</b>\n\n"
+        "🔍 <b>BIN Details:</b> Type <code>/bin 411122</code>\n"
+        "💳 <b>Card Checker:</b> Type <code>/chk card|mm|yy|cvv</code>\n\n"
+        "<i>⚡ Powered by Stripe Live API</i>"
     )
+    bot.reply_to(message, welcome)
 
-
-@bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    text = message.text.strip()
-
-    if not text.isdigit() or len(text) != 6:
-        bot.reply_to(message, "❌ Please send a valid 6 digit BIN.")
+# --- BIN Lookup Feature (/bin) ---
+@bot.message_handler(commands=['bin'])
+def handle_bin(message):
+    text = message.text.replace('/bin', '').strip()
+    if not text.isdigit() or len(text) < 6:
+        bot.reply_to(message, "❌ Sahi BIN likho. Example: <code>/bin 457173</code>")
         return
-
-    start_time = time.time()
-
+    
+    bin_to_check = text[:6]
     try:
-        res = requests.get(f"https://lookup.binlist.net/{text}", timeout=10)
-
-        if res.status_code != 200:
-            bot.reply_to(message, "⚠️ BIN not found.")
-            return
-
+        res = requests.get(f"https://lookup.binlist.net/{bin_to_check}", timeout=10)
         data = res.json()
+        response = (
+            "━━━━━━━━━━━━━━━━━━\n"
+            "<b>💳 BIN RESULT</b>\n"
+            "━━━━━━━━━━━━━━━━━━\n\n"
+            f"<b>🔢 BIN:</b> <code>{bin_to_check}</code>\n"
+            f"<b>🏦 Bank:</b> {data.get('bank', {}).get('name', 'N/A')}\n"
+            f"<b>🌐 Network:</b> {data.get('scheme', 'N/A')}\n"
+            f"<b>🌎 Country:</b> {data.get('country', {}).get('name', 'N/A')}\n\n"
+            "━━━━━━━━━━━━━━━━━━"
+        )
+        bot.reply_to(message, response)
+    except:
+        bot.reply_to(message, "⚠️ BIN details nahi milin.")
 
-        bank = data.get('bank', {}).get('name', 'N/A')
-        scheme = data.get('scheme', 'N/A')
-        card_type = data.get('type', 'N/A')
-        brand = data.get('brand', 'N/A')
-        country = data.get('country', {}).get('name', 'UNKNOWN')
-        flag = data.get('country', {}).get('emoji', '🌍')
-
-    except Exception as e:
-        print("API ERROR:", e)
-        bot.reply_to(message, "⚠️ Server Busy. Try Again Later.")
+# --- Card Checker Feature (/chk) ---
+@bot.message_handler(commands=['chk'])
+def handle_chk(message):
+    input_text = message.text.replace('/chk', '').strip()
+    if "|" not in input_text:
+        bot.reply_to(message, "❌ Format: <code>/chk card|mm|yy|cvv</code>")
         return
+    
+    try:
+        parts = input_text.split('|')
+        cc = parts[0].strip()
+        mm = parts[1].strip()
+        yy = parts[2].strip()
+        cvv = parts[3].strip()
+        
+        if len(yy) == 2: yy = "20" + yy
+        
+        bot.send_chat_action(message.chat.id, 'typing')
+        
+        try:
+            # Stripe API check
+            token = stripe.Token.create(
+                card={"number": cc, "exp_month": int(mm), "exp_year": int(yy), "cvc": cvv}
+            )
+            status = "✅ <b>CARD LIVE</b>"
+            reason = "Success (CVV Match)"
+        except stripe.error.CardError as e:
+            status = "❌ <b>DECLINED</b>"
+            reason = e.user_message
+        
+        res_chk = (
+            "━━━━━━━━━━━━━━━━━━\n"
+            f"{status}\n"
+            "━━━━━━━━━━━━━━━━━━\n\n"
+            f"💳 <b>Card:</b> <code>{input_text}</code>\n"
+            f"📝 <b>Response:</b> {reason}\n"
+            f"⚡ <b>Gateway:</b> Stripe Live\n"
+            "━━━━━━━━━━━━━━━━━━"
+        )
+        bot.reply_to(message, res_chk)
+    except:
+        bot.reply_to(message, "⚠️ System Error. Check format.")
 
-    response_time = round(time.time() - start_time, 2)
-
-    response = (
-        "━━━━━━━━━━━━━━━━━━\n"
-        "<b>💳 BIN RESULT</b>\n"
-        "━━━━━━━━━━━━━━━━━━\n\n"
-        f"<b>🔢 BIN:</b> <code>{text}</code>\n"
-        f"<b>🏦 Bank:</b> {bank}\n"
-        f"<b>🌐 Network:</b> {scheme}\n"
-        f"<b>💼 Type:</b> {card_type}\n"
-        f"<b>⭐ Brand:</b> {brand}\n"
-        f"<b>🌎 Country:</b> {country} {flag}\n\n"
-        f"⏱ <i>Response:</i> {response_time}s\n"
-        "━━━━━━━━━━━━━━━━━━"
-    )
-
-    bot.reply_to(message, response)
-
-
-print("🚀 Bot is Running...")
-bot.infinity_polling()
+if __name__ == "__main__":
+    keep_alive()
+    print("🚀 Bot is Starting...")
+    bot.infinity_polling()
