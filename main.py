@@ -2,13 +2,14 @@ import os
 import telebot
 import requests
 import time
+from telebot import types # Professional buttons ke liye
 from flask import Flask
 from threading import Thread
 
 # --- Railway/Uptime Health Check ---
 app = Flask('')
 @app.route('/')
-def home(): return "Bot is Online 24/7"
+def home(): return "NiaziBin Bot is Online 24/7"
 
 def run():
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
@@ -17,21 +18,39 @@ def keep_alive():
     Thread(target=run).start()
 
 # --- Configuration ---
-# Railway Variables mein 'TOKEN' aur 'RAPIDAPI_KEY' add karna zaroori hai
 TOKEN = os.getenv("TOKEN")
-RAPID_KEY = os.getenv("RAPIDAPI_KEY") 
+RAPID_KEY = os.getenv("RAPIDAPI_KEY") #
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
+# --- Commands List for Menu ---
+# Janu, BotFather mein ja kar ye commands set kar lena
 @bot.message_handler(commands=['start'])
 def start(message):
+    user_name = message.from_user.first_name
+    user_id = message.from_user.id
+    
+    # Inline Buttons
+    markup = types.InlineKeyboardMarkup()
+    btn1 = types.InlineKeyboardButton("📢 My Channel", url="https://t.me/your_channel_link") # Apna link dalo
+    btn2 = types.InlineKeyboardButton("🛠️ Commands", callback_data="help_cmd")
+    markup.add(btn1, btn2)
+    
     welcome = (
-        "<b>🔥 Welcome to Professional Checker Bot!</b>\n\n"
-        "💳 <b>Usage:</b>\n"
-        "• <code>/chk card|mm|yy|cvv</code>\n"
-        "• <code>/bin 411122</code>\n\n"
-        "🚀 <b>Status:</b> 24/7 Active via Railway"
+        f"<b>🔥 Welcome {user_name} to NiaziBin Bot!</b>\n\n"
+        f"🆔 <b>User ID:</b> <code>{user_id}</code>\n"
+        f"🚀 <b>Status:</b> <code>Premium Active</code>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━\n"
+        f"💳 <b>Format:</b> <code>/chk card|mm|yy|cvv</code>\n"
+        f"🔍 <b>Format:</b> <code>/bin 411122</code>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━\n"
+        f"✨ <b>Powered by:</b> @NiaziBin_bot"
     )
-    bot.reply_to(message, welcome)
+    bot.reply_to(message, welcome, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "help_cmd")
+def help_callback(call):
+    bot.answer_callback_query(call.id, "Use /chk or /bin")
+    bot.send_message(call.message.chat.id, "📖 <b>Manual:</b>\n\n1. Card check: /chk 411111|11|28|123\n2. BIN lookup: /bin 411122")
 
 @bot.message_handler(commands=['chk'])
 def chk_handler(message):
@@ -61,7 +80,6 @@ def chk_handler(message):
         is_valid = response.get('isValid', False)
         ctype = response.get('cardType', 'Unknown').upper()
         
-        # Result Logic
         status = "✅ <b>LIVE / HIT</b>" if is_valid else "❌ <b>DEAD / DECLINED</b>"
         security = "3D Secure" if is_valid and "VISA" in ctype else "2D / Unknown"
 
@@ -77,6 +95,8 @@ def chk_handler(message):
             f"✨ <b>Checked By:</b> @{bot.get_me().username}"
         )
         bot.reply_to(message, res)
+        
+        # Agar LIVE aaye to admin ko ya channel ko forward karne ka code yahan add ho sakta hai
     except:
         bot.reply_to(message, "⚠️ <b>Error:</b> API limit reached or key invalid.")
 
@@ -103,5 +123,5 @@ def bin_handler(message):
         bot.reply_to(message, "❌ <b>Error:</b> BIN not found or API down.")
 
 if __name__ == "__main__":
-    keep_alive() # Keep bot 24/7 on Railway
+    keep_alive() #
     bot.infinity_polling()
