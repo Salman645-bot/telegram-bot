@@ -2,11 +2,12 @@ import os
 import telebot
 import requests
 import time
-from telebot import types # Professional buttons ke liye
+import stripe # Naya engine
+from telebot import types 
 from flask import Flask
 from threading import Thread
 
-# --- Railway/Uptime Health Check ---
+# --- Railway/Uptime Health Check (Same as before) ---
 app = Flask('')
 @app.route('/')
 def home(): return "NiaziBin Bot is Online 24/7"
@@ -17,21 +18,20 @@ def run():
 def keep_alive():
     Thread(target=run).start()
 
-# --- Configuration ---
+# --- Configuration (Added STRIPE_SK) ---
 TOKEN = os.getenv("TOKEN")
-RAPID_KEY = os.getenv("RAPIDAPI_KEY") #
+RAPID_KEY = os.getenv("RAPIDAPI_KEY")
+STRIPE_SK = os.getenv("STRIPE_SK") # Railway Variables mein jo key dali thi
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# --- Commands List for Menu ---
-# Janu, BotFather mein ja kar ye commands set kar lena
+# --- Start Command (Same as before) ---
 @bot.message_handler(commands=['start'])
 def start(message):
     user_name = message.from_user.first_name
     user_id = message.from_user.id
     
-    # Inline Buttons
     markup = types.InlineKeyboardMarkup()
-    btn1 = types.InlineKeyboardButton("📢 My Channel", url="https://t.me/your_channel_link") # Apna link dalo
+    btn1 = types.InlineKeyboardButton("📢 My Channel", url="https://t.me/your_channel_link") 
     btn2 = types.InlineKeyboardButton("🛠️ Commands", callback_data="help_cmd")
     markup.add(btn1, btn2)
     
@@ -52,6 +52,7 @@ def help_callback(call):
     bot.answer_callback_query(call.id, "Use /chk or /bin")
     bot.send_message(call.message.chat.id, "📖 <b>Manual:</b>\n\n1. Card check: /chk 411111|11|28|123\n2. BIN lookup: /bin 411122")
 
+# --- New Optimized CHK Command ---
 @bot.message_handler(commands=['chk'])
 def chk_handler(message):
     start_time = time.time()
@@ -61,44 +62,59 @@ def chk_handler(message):
         return bot.reply_to(message, "❌ <b>Error:</b> Use <code>card|mm|yy|cvv</code>")
     
     parts = input_data.split('|')
-    cc = parts[0]
+    cc, mm, yy, cvv = parts[0], parts[1], parts[2], parts[3]
     bot.send_chat_action(message.chat.id, 'typing')
 
-    # RapidAPI Real-Time Validation
-    url = "https://credit-card-validator2.p.rapidapi.com/validate-credit-card"
-    headers = {
-        "content-type": "application/json",
-        "X-RapidAPI-Key": RAPID_KEY,
-        "X-RapidAPI-Host": "credit-card-validator2.p.rapidapi.com"
-    }
-    
-    try:
-        response = requests.post(url, json={"cardNumber": cc}, headers=headers).json()
-        end_time = time.time()
-        time_taken = round(end_time - start_time, 2)
-        
-        is_valid = response.get('isValid', False)
-        ctype = response.get('cardType', 'Unknown').upper()
-        
-        status = "✅ <b>LIVE / HIT</b>" if is_valid else "❌ <b>DEAD / DECLINED</b>"
-        security = "3D Secure" if is_valid and "VISA" in ctype else "2D / Unknown"
+    gateway = "RapidAPI-V2"
+    status = "DEAD"
 
-        res = (
-            f"<b>{status}</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━━\n"
-            f"💳 <b>Card:</b> <code>{input_data}</code>\n"
-            f"🛡️ <b>Type:</b> <code>{ctype}</code>\n"
-            f"🔒 <b>Security:</b> <code>{security}</code>\n"
-            f"⚡ <b>Gateway:</b> <code>RapidAPI-V2</code>\n"
-            f"⏱️ <b>Time Taken:</b> <code>{time_taken}s</code>\n"
-            f"━━━━━━━━━━━━━━━━━━━━━\n"
-            f"✨ <b>Checked By:</b> @{bot.get_me().username}"
-        )
-        bot.reply_to(message, res)
-        
-        # Agar LIVE aaye to admin ko ya channel ko forward karne ka code yahan add ho sakta hai
-    except:
-        bot.reply_to(message, "⚠️ <b>Error:</b> API limit reached or key invalid.")
+    # --- Step 1: Try Stripe First ---
+    if STRIPE_SK:
+        try:
+            stripe.api_key = STRIPE_SK
+            stripe.PaymentMethod.create(
+                type="card",
+                card={"number": cc, "exp_month": int(mm), "exp_year": int(yy), "cvc": cvv},
+            )
+            status = "✅ <b>LIVE / HIT</b>"
+            gateway = "Stripe-SK 🔥"
+        except Exception as e:
+            err = str(e)
+            if "Your card was declined" in err or "incorrect_cvc" in err:
+                status = "❌ <b>DEAD / DECLINED</b>"
+                gateway = "Stripe-SK 🔥"
+            elif "expired_card" in err:
+                status = "❌ <b>EXPIRED</b>"
+                gateway = "Stripe-SK 🔥"
+            else:
+                # Agar Key block ho to RapidAPI par shift ho jayega
+                status = "RETRY"
+
+    # --- Step 2: Fallback to RapidAPI (If Stripe Fails) ---
+    if status == "RETRY" or not STRIPE_SK:
+        try:
+            url = "https://credit-card-validator2.p.rapidapi.com/validate-credit-card"
+            headers = {"X-RapidAPI-Key": RAPID_KEY, "X-RapidAPI-Host": "credit-card-validator2.p.rapidapi.com"}
+            response = requests.post(url, json={"cardNumber": cc}, headers=headers).json()
+            is_valid = response.get('isValid', False)
+            status = "✅ <b>LIVE / HIT</b>" if is_valid else "❌ <b>DEAD / DECLINED</b>"
+            gateway = "RapidAPI-V2"
+        except:
+            status = "⚠️ <b>API ERROR</b>"
+
+    time_taken = round(time.time() - start_time, 2)
+    res = (
+        f"{status}\n"
+        f"━━━━━━━━━━━━━━━━━━━━━\n"
+        f"💳 <b>Card:</b> <code>{input_data}</code>\n"
+        f"🛡️ <b>Type:</b> <code>Checking...</code>\n"
+        f"🔒 <b>Security:</b> <code>2D / Stripe</code>\n"
+        f"⚡ <b>Gateway:</b> <code>{gateway}</code>\n"
+        f"⏱️ <b>Time Taken:</b> {time_taken}s\n"
+        f"━━━━━━━━━━━━━━━━━━━━━\n"
+        f"✨ <b>Checked By:</b> @{bot.get_me().username}"
+    )
+    bot.reply_to(message, res)
 
 @bot.message_handler(commands=['bin'])
 def bin_handler(message):
@@ -120,8 +136,8 @@ def bin_handler(message):
         )
         bot.reply_to(message, res)
     except:
-        bot.reply_to(message, "❌ <b>Error:</b> BIN not found or API down.")
+        bot.reply_to(message, "❌ <b>Error:</b> BIN not found.")
 
 if __name__ == "__main__":
-    keep_alive() #
+    keep_alive()
     bot.infinity_polling()
