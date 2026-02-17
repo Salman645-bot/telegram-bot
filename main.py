@@ -3,10 +3,10 @@ from telebot import types
 from flask import Flask
 from threading import Thread
 
-# --- Professional Uptime Monitor ---
+# --- Railway Health Check ---
 app = Flask('')
 @app.route('/')
-def home(): return "<h1>NiaziBin Bot is Online</h1>"
+def home(): return "NiaziBin Master Elite is Online"
 
 def run():
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
@@ -14,35 +14,32 @@ def run():
 def keep_alive():
     Thread(target=run).start()
 
-# --- Config & Variables ---
+# --- Configuration ---
 TOKEN = os.getenv("TOKEN")
 RAPID_KEY = os.getenv("RAPIDAPI_KEY")
 STRIPE_SK = os.getenv("STRIPE_SK")
+ADMIN_ID = 123456789  # <--- Yahan apni Telegram ID dalo
+
+if not TOKEN:
+    exit()
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# --- UI Aesthetics ---
-LOG_URL = "https://i.ibb.co/example.jpg" # Yahan apna logo link daal sakte ho
+# --- UI & Features ---
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        types.InlineKeyboardButton("📢 Channel", url="https://t.me/your_link"),
-        types.InlineKeyboardButton("🛠️ Tools", callback_data="tools"),
-        types.InlineKeyboardButton("💳 My Account", callback_data="account")
-    )
-    
     welcome = (
-        f"<b>⚜️ WELCOME TO NIAZIBIN PREMIUM ⚜️</b>\n"
+        f"<b>⚜️ NIAZIBIN MASTER ELITE V7.0 ⚜️</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━\n"
-        f"👤 <b>User:</b> <code>{message.from_user.first_name}</code>\n"
-        f"🆔 <b>ID:</b> <code>{message.from_user.id}</code>\n"
-        f"🚀 <b>Status:</b> <pre>Premium V3.0 Active</pre>\n"
+        f"🚀 <b>Server:</b> <code>Railway Cloud</code>\n"
+        f"🛰️ <b>Status:</b> <code>Premium V7.0 Active</code>\n"
         f"━━━━━━━━━━━━━━━━━━━━━\n"
-        f"💡 <i>Use /chk to start validating cards with high-speed gateways!</i>"
+        f"💳 <b>Check:</b> <code>/chk card|mm|yy|cvv</code>\n"
+        f"🏦 <b>Lookup:</b> <code>/bin 411122</code>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━"
     )
-    bot.reply_to(message, welcome, reply_markup=markup)
+    bot.reply_to(message, welcome)
 
 @bot.message_handler(commands=['chk'])
 def chk_handler(message):
@@ -50,19 +47,19 @@ def chk_handler(message):
     input_data = message.text.replace('/chk', '').strip()
     
     if "|" not in input_data:
-        return bot.reply_to(message, "<b>⚠️ INVALID FORMAT</b>\n\nFormat: <code>card|mm|yy|cvv</code>")
+        return bot.reply_to(message, "❌ <b>Format:</b> <code>card|mm|yy|cvv</code>")
     
+    msg = bot.reply_to(message, "<b>⌛ Processing Through Multi-Gateways... ♻️</b>")
+    
+    # Extracting Data
     try:
         cc, mm, yy, cvv = input_data.split('|')
     except:
-        return bot.reply_to(message, "❌ <b>Parse Error!</b> Check your CC format.")
+        return bot.edit_message_text("❌ Invalid Format", message.chat.id, msg.message_id)
 
-    # Professional Live Status
-    loading = bot.reply_to(message, "<b>⚡ Processing... ♻️</b>")
-    
-    gateway, status, icon = "RapidAPI-V2", "DECLINED", "❌"
+    status, gateway, icon = "DEAD", "RapidAPI-V2", "❌"
 
-    # --- HIGH SPEED STRIPE GATEWAY ---
+    # --- GATEWAY 1: STRIPE AUTH ---
     if STRIPE_SK:
         try:
             stripe.api_key = STRIPE_SK
@@ -71,32 +68,38 @@ def chk_handler(message):
         except Exception as e:
             err = str(e)
             if "declined" in err or "incorrect_cvc" in err:
-                status, gateway, icon = "DEAD / DECLINED", "Stripe-Auth 🔥", "❌"
+                status, gateway = "DECLINED", "Stripe-Auth 🔥"
             else:
-                # Automatic Fallback
+                # --- GATEWAY 2: FALLBACK RAPIDAPI ---
                 try:
                     headers = {"X-RapidAPI-Key": RAPID_KEY, "X-RapidAPI-Host": "credit-card-validator2.p.rapidapi.com"}
-                    res = requests.post("https://credit-card-validator2.p.rapidapi.com/validate-credit-card", json={"cardNumber": cc}, headers=headers).json()
-                    status = "LIVE / HIT" if res.get('isValid') else "DEAD"
-                    icon = "✅" if res.get('isValid') else "❌"
-                except: status, icon = "GATEWAY ERROR", "⚠️"
+                    r = requests.post("https://credit-card-validator2.p.rapidapi.com/validate-credit-card", json={"cardNumber": cc}, headers=headers).json()
+                    status = "LIVE / HIT" if r.get('isValid') else "DEAD"
+                    icon = "✅" if r.get('isValid') else "❌"
+                    gateway = "RapidAPI-V2"
+                except: status, icon = "API ERROR", "⚠️"
 
     time_taken = round(time.time() - start_time, 2)
     
-    # --- The Ultra Pro Max Professional Reply ---
+    # --- Professional Result ---
     response = (
-        f"{icon} <b>{status}</b>\n"
+        f"{icon} <b>STATUS: {status}</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━\n"
         f"💳 <b>Card:</b> <code>{input_data}</code>\n"
         f"⚡ <b>Gateway:</b> <code>{gateway}</code>\n"
-        f"🛡️ <b>Security:</b> <code>2D / Stripe-V3</code>\n"
-        f"⏱️ <b>Time Taken:</b> <code>{time_taken}s</code>\n"
+        f"⏱️ <b>Time:</b> <code>{time_taken}s</code>\n"
         f"━━━━━━━━━━━━━━━━━━━━━\n"
         f"✨ <b>Checked By:</b> @{bot.get_me().username}"
     )
-    bot.edit_message_text(response, message.chat.id, loading.message_id)
+    bot.edit_message_text(response, message.chat.id, msg.message_id)
+
+    # --- Internal Hit Logging ---
+    if "LIVE" in status:
+        try:
+            bot.send_message(ADMIN_ID, f"🔥 <b>LIVE HIT FOUND!</b>\n\nCC: <code>{input_data}</code>\nBy: {message.from_user.first_name}")
+        except: pass
 
 if __name__ == "__main__":
     keep_alive()
-    bot.delete_webhook() # Clearing Conflict 409
+    bot.delete_webhook() # Fixes Error 409
     bot.infinity_polling()
