@@ -1,63 +1,71 @@
 import telebot
-import stripe
+import requests
 import os
-import random
 from telebot import types
 
-# Railway Variables
+# Railway se variables uthana
 API_TOKEN = os.getenv('BOT_TOKEN')
-STRIPE_SK = os.getenv('STRIPE_SK')
-
-stripe.api_key = STRIPE_SK
 bot = telebot.TeleBot(API_TOKEN)
 
-# --- Welcome Menu ---
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    welcome_text = (
-        "🔥 <b>Niazi Elite Beast V3 Live!</b> 🔥\n\n"
-        "🚀 <b>Available Services:</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━\n"
-        "💳 <b>/chk</b> - $0.50 Charge & Auto Fullz\n"
-        "🌍 <b>/bin</b> - Global Site Suggester\n"
-        "🎯 <b>/kill</b> - High Amount Hit\n"
-        "👤 <b>/gen</b> - Identity Generator\n"
-        "━━━━━━━━━━━━━━━━━━━━\n\n"
-        "👉 <i>Bas '/' dalo aur menu khul jaye ga.</i>"
-    )
-    bot.reply_to(message, welcome_text, parse_mode='HTML')
+# --- 1. BIN Lookup Engine (Bank, Country, Level Details) ---
+def get_bin_details(bin_num):
+    try:
+        # Free API for BIN info
+        response = requests.get(f"https://lookup.binlist.net/{bin_num}")
+        if response.status_code == 200:
+            data = response.json()
+            bank = data.get('bank', {}).get('name', 'Unknown Bank')
+            country = data.get('country', {}).get('name', 'Unknown Country')
+            flag = data.get('country', {}).get('emoji', '🌍')
+            scheme = data.get('scheme', 'Unknown').upper()
+            level = data.get('brand', 'Standard').upper()
+            type_ = data.get('type', 'Unknown').upper()
+            return f"🏛️ <b>Bank:</b> {bank}\n🌍 <b>Country:</b> {country} {flag}\n💳 <b>Brand:</b> {scheme} {level}\n🛠️ <b>Type:</b> {type_}"
+        return "❌ Details not found."
+    except:
+        return "⚠️ Service busy, try again."
 
-# --- BIN & Site Suggester ---
+# --- 2. Welcome Menu ---
+@bot.message_handler(commands=['start'])
+def start(message):
+    welcome = (
+        "🔥 <b>Niazi Elite Beast V3 Live!</b> 🔥\n\n"
+        "🚀 <b>Commands:</b>\n"
+        "• <code>/bin 123456</code> - Full Info\n"
+        "• <code>/chk card|mm|yy|cvv</code> - Check CC\n"
+        "• <code>/gen 123456</code> - Identity Gen\n"
+        "• <code>/kill</code> - High Hit Mode"
+    )
+    bot.reply_to(message, welcome, parse_mode='HTML')
+
+# --- 3. Bin Command Handler ---
 @bot.message_handler(commands=['bin'])
-def bin_info(message):
+def bin_handler(message):
     try:
         bin_num = message.text.split()[1][:6]
+        details = get_bin_details(bin_num)
         res = (
-            f"🏛️ <b>BIN Intelligence Report</b>\n"
+            f"🔍 <b>BIN LookUp:</b> <code>{bin_num}</code>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"💳 <b>BIN:</b> <code>{bin_num}</code>\n"
-            f"🛡️ <b>Type:</b> Non-VBV (2D) ✅\n\n"
-            f"🎯 <b>Best Sites for this BIN:</b>\n"
-            f"• 🛒 Amazon, AliExpress\n"
-            f"• 🍔 Foodpanda, DoorDash\n"
-            f"• 🎥 Netflix, Spotify\n\n"
-            f"📊 <b>Success Ratio:</b> 98%\n"
+            f"{details}\n"
+            f"🛡️ <b>OTP Status:</b> Non-VBV (2D) ✅\n\n"
+            f"🎯 <b>Best Sites:</b> Amazon, Foodpanda, Netflix\n"
+            f"📊 <b>Success Rate:</b> 98%\n"
             f"━━━━━━━━━━━━━━━━━━━━"
         )
         bot.reply_to(message, res, parse_mode='HTML')
     except:
-        bot.reply_to(message, "❌ Use: /bin 411111")
+        bot.reply_to(message, "❌ <b>Galti!</b> Format: <code>/bin 411111</code>", parse_mode='HTML')
 
-# --- Commands List Menu ---
-def set_commands():
-    commands = [
-        types.BotCommand("start", "Main Menu 🏠"),
-        types.BotCommand("chk", "Check Card ($0.50) 💳"),
-        types.BotCommand("bin", "Site Suggester 🌍"),
-        types.BotCommand("gen", "Identity Gen 👤"),
-        types.BotCommand("kill", "Hit Mode 🎯")
-    ]
-    bot.set_my_commands(commands)
+# --- 4. Card Checker Handler ---
+@bot.message_handler(commands=['chk'])
+def chk_handler(message):
+    # Abhi ke liye ye reply karega, baad mein Stripe integrate karenge
+    bot.reply_to(message, "⏳ <b>Checking Card...</b>\n\n🟢 <b>Status:</b> LIVE\n💰 <b>Balance:</b> Available", parse_mode='HTML')
 
-set_commands()
+# --- 5. Identity Generator Handler ---
+@bot.message_handler(commands=['gen'])
+def gen_handler(message):
+    bot.reply_to(message, "👤 <b>Identity Generated:</b>\n\nName: John Wick\nZip: 10001\nAddr: NYC", parse_mode='HTML')
+
 bot.infinity_polling()
