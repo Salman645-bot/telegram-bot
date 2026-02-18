@@ -5,8 +5,25 @@ import stripe
 import time
 from telebot import types
 from faker import Faker
+from flask import Flask
+from threading import Thread
 
-# Setup
+# --- Flask Server for UptimeRobot ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Niazi Elite Beast is Online!"
+
+def run():
+    # Railway hamesha port 8080 use karta hai
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# --- Bot Setup ---
 API_TOKEN = os.getenv('BOT_TOKEN')
 STRIPE_SK = os.getenv('STRIPE_SK')
 stripe.api_key = STRIPE_SK
@@ -97,7 +114,6 @@ def gen_cmd(message):
 def card_actions(message):
     cmd = message.text.split()[0][1:].upper()
     start_time = time.time()
-    # Placeholder for actual processing logic
     taken = round(time.time() - start_time, 2)
     
     res = (
@@ -111,4 +127,7 @@ def card_actions(message):
     )
     bot.reply_to(message, res, parse_mode='HTML')
 
-bot.infinity_polling()
+# --- Start Everything ---
+if __name__ == "__main__":
+    keep_alive() # Flask start karega
+    bot.infinity_polling() # Bot start karega
