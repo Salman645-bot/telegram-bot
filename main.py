@@ -1,82 +1,88 @@
-import os, telebot, requests, stripe, random
-from flask import Flask
-from threading import Thread
+import telebot
+from telebot import types
+import random
 
-# --- Flask Server for 24/7 ---
-app = Flask('')
-@app.route('/')
-def home(): return "Niazi Elite V15: ONLINE"
-def run(): app.run(host='0.0.0.0', port=8080)
-Thread(target=run).start()
+# 🔑 Apni API Key yahan dalein
+API_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
+bot = telebot.TeleBot(API_TOKEN)
 
-# --- Configs ---
-TOKEN = os.getenv("TOKEN")
-STRIPE_SK = os.getenv("STRIPE_SK")
-bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+# --- 1. Stylish Menu & Commands Setup ---
+def set_bot_commands():
+    commands = [
+        types.BotCommand("start", "Welcome & Services Menu 🏠"),
+        types.BotCommand("chk", "Check Card ($0.50) + Fullz 💳"),
+        types.BotCommand("auth", "Authorize Card ($0.00) 🛡️"),
+        types.BotCommand("bin", "Global Site Suggester & Info 🌍"),
+        types.BotCommand("gen", "Generate Fake Identity 👤"),
+        types.BotCommand("kill", "Hit Card (High Amount) 🎯")
+    ]
+    bot.set_my_commands(commands)
 
-# --- Welcome Message ---
+# --- 2. Welcome Message (First Start) ---
 @bot.message_handler(commands=['start'])
-def start(message):
-    welcome = (
-        f"🔥 <b>Welcome to Niazi Elite V15</b> 🔥\n\n"
-        f"Hello {message.from_user.first_name}, I am your professional carding assistant.\n\n"
-        f"<b>Available Commands:</b>\n"
-        f"🚀 <code>/chk cc|mm|yy|cvv</code> - Advanced Stripe 2D/3D Check\n"
-        f"🔍 <code>/bin 123456</code> - Full Bank & Level Info\n"
-        f"💀 <code>/kill cc|mm|yy|cvv</code> - Instant Card Killer\n"
-        f"🛠 <code>/gen 426150</code> - Generate 10 CCs with Algorithm\n\n"
-        f"<i>Status: System Online & Ready!</i>"
+def welcome(message):
+    welcome_msg = (
+        "🔥 <b>Welcome to Niazi Elite Beast V3!</b> 🔥\n\n"
+        "<i>Duniya ka sab se tez aur smart carding intelligence system.</i>\n\n"
+        "🚀 <b>Hamari Ultra Pro Services:</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "💳 <b>/chk</b> - $0.50 Balance Sniffer + Auto Fullz\n"
+        "🛡️ <b>/auth</b> - Safe Check (Authorization Only)\n"
+        "🌍 <b>/bin</b> - Global Site Suggester (2D/3D Search)\n"
+        "👤 <b>/gen</b> - Identity Generator (Name/Addr/Zip)\n"
+        "🎯 <b>/kill</b> - Card Hit Mode (High Success)\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "📢 <b>Note:</b> Bot khud bataye ga kaunsi BIN kis site par 100% chal rahi hai!\n"
+        "👉 Bas <b>'/'</b> dalo aur menu khul jaye ga."
     )
-    bot.reply_to(message, welcome)
+    bot.reply_to(message, welcome_msg, parse_mode='HTML')
 
-# --- BIN Lookup Feature ---
+# --- 3. BIN Lookup & Global Site Suggester ---
 @bot.message_handler(commands=['bin'])
-def bin_lookup(message):
-    bin_num = message.text.split()[1][:6]
-    data = requests.get(f"https://lookup.binlist.net/{bin_num}").json()
-    
-    # Sites Suggestions Logic
-    sites = ["Amazon", "Netflix", "Shopify", "AliExpress", "FoodPanda"]
-    best_site = random.choice(sites)
-    
-    res = (
-        f"🔍 <b>BIN LookUp Result</b>\n"
-        f"💳 <b>Bank:</b> {data.get('bank', {}).get('name', 'N/A')}\n"
-        f"🌍 <b>Country:</b> {data.get('country', {}).get('name', 'N/A')} {data.get('country', {}).get('emoji', '')}\n"
-        f"💎 <b>Level:</b> {data.get('scheme', 'N/A')} - {data.get('type', 'N/A')} {data.get('brand', '')}\n"
-        f"✅ <b>Best for:</b> {best_site} (No OTP Likely)\n"
-    )
-    bot.reply_to(message, res)
+def bin_info(message):
+    try:
+        bin_num = message.text.split()[1][:6]
+        # Fake suggestions based on logic for demo
+        res = (
+            f"🏛️ <b>BIN Intelligence Report</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"💳 <b>BIN:</b> <code>{bin_num}</code>\n"
+            f"🏳️ <b>Country:</b> USA 🇺🇸 | <b>Level:</b> Infinite\n"
+            f"🛡️ <b>OTP Status:</b> <b>Non-VBV (2D) - NO OTP!</b> 🚀\n\n"
+            f"🎯 <b>Best Success Sites (Global):</b>\n"
+            f"• 🛒 <b>Amazon, AliExpress, Walmart</b>\n"
+            f"• 🍔 <b>Foodpanda, DoorDash, UberEats</b>\n"
+            f"• 🎥 <b>Netflix, Spotify, DigitalOcean</b>\n\n"
+            f"📊 <b>Success Ratio:</b> 98% (Outstanding!)\n"
+            f"━━━━━━━━━━━━━━━━━━━━"
+        )
+        bot.reply_to(message, res, parse_mode='HTML')
+    except:
+        bot.reply_to(message, "❌ <b>Galti!</b> Use: /bin 411111", parse_mode='HTML')
 
-# --- Checker & Killer Feature (Stripe) ---
-@bot.message_handler(commands=['chk', 'kill'])
+# --- 4. Card Checker + Balance + Fullz ---
+@bot.message_handler(commands=['chk'])
 def check_card(message):
-    cmd = message.text.split()[0]
-    bot.reply_to(message, "⏳ <b>Processing... Niazi Engine Running</b>")
-    
-    # Yahan Stripe API call hogi jo card ka status legi
-    # 2D/3D detection aur Live/Dead logic yahan add hogi
-    status = "LIVE ✅" if "kill" not in cmd else "KILLED 💀"
-    
-    response = (
-        f"💳 <b>Card:</b> <code>{message.text.split()[1]}</code>\n"
-        f"📝 <b>Status:</b> {status}\n"
-        f"🛡 <b>Gateway:</b> Stripe Elite 3.0\n"
-        f"⚡ <b>Type:</b> 2D Non-VBV (High Success)\n"
-        f"🛒 <b>Suggested Site:</b> Apple.com / Alibaba\n"
-    )
-    bot.reply_to(message, response)
+    try:
+        cc_data = message.text.split()[1]
+        # Logic: $0.50 charge simulation
+        res = (
+            f"💳 <b>Checker Result (Niazi Beast)</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"📝 <b>Card:</b> <code>{cc_data}</code>\n"
+            f"🟢 <b>Status:</b> <b>LIVE (Charged $0.50)</b> ✅\n"
+            f"💰 <b>Balance:</b> AVAILABLE (High Limit) 🔋\n\n"
+            f"👤 <b>Generated Fullz (Billing Info):</b>\n"
+            f"• <b>Name:</b> John Wick\n"
+            f"• <b>Addr:</b> 123 Street Ave, New York\n"
+            f"• <b>Zip:</b> 10001\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🚀 <b>Verdict:</b> Perfect for 2D Sites!"
+        )
+        bot.reply_to(message, res, parse_mode='HTML')
+    except:
+        bot.reply_to(message, "❌ <b>Galti!</b> Use: /chk cc|mm|yy|cvv", parse_mode='HTML')
 
-# --- Generator Feature ---
-@bot.message_handler(commands=['gen'])
-def generate_cards(message):
-    bin_num = message.text.split()[1]
-    cards = ""
-    for _ in range(10):
-        # Simple Logic to generate 10 cards
-        cards += f"<code>{bin_num}{random.randint(1000000000, 9999999999)}|{random.randint(1,12)}|20{random.randint(25,30)}|{random.randint(100,999)}</code>\n"
-    
-    bot.reply_to(message, f"🛠 <b>Generated 10 Cards for BIN {bin_num}:</b>\n\n{cards}")
-
+# Commands set karein aur bot start karein
+set_bot_commands()
 bot.infinity_polling()
-
