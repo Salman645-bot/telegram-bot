@@ -16,7 +16,7 @@ def home():
     return "Niazi Elite Beast is Online!"
 
 def run():
-    # Railway hamesha port 8080 use karta hai
+    # Railway listens on port 8080
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
@@ -127,7 +127,6 @@ def card_actions(message):
     )
     bot.reply_to(message, res, parse_mode='HTML')
 
-# --- Start Everything ---
 if __name__ == "__main__":
-    keep_alive() # Flask start karega
-    bot.infinity_polling() # Bot start karega
+    keep_alive() 
+    bot.infinity_polling()
