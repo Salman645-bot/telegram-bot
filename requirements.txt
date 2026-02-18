@@ -1,4 +1,5 @@
 pyTelegramBotAPI
 stripe
 requests
+flask
 faker
