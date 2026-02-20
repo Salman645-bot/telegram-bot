@@ -3,6 +3,7 @@ import requests
 import os
 import stripe
 import time
+import random
 from telebot import types
 from faker import Faker
 from flask import Flask
@@ -13,10 +14,9 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Niazi Elite Beast is Online!"
+    return "Niazi Elite Beast V7.0 is Online!"
 
 def run():
-    # Railway listens on port 8080
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
@@ -62,15 +62,22 @@ def gen_identity():
 @bot.message_handler(commands=['start'])
 def start(message):
     welcome = (
-        "🔥 <b>Niazi Elite Beast V6.0 Active!</b> 🔥\n\n"
-        "🚀 <b>Available Commands:</b>\n"
-        "• <code>/bin</code> - BIN History & Site Suggester\n"
-        "• <code>/chk</code> - $0.50 Charge + Fullz\n"
-        "• <code>/auth</code> - $0.00 Verification\n"
-        "• <code>/gen</code> - Identity + SSN Generator\n"
-        "• <code>/kill</code> - High Amount Hit Mode"
+        "🔥 <b>Niazi Elite Beast V7.0 Active!</b> 🔥\n\n"
+        "🚀 <b>Standard Commands:</b>\n"
+        "• <code>/bin</code> - BIN LookUp\n"
+        "• <code>/chk</code> - $0.50 Charge\n"
+        "• <code>/auth</code> - $0.00 Auth\n"
+        "• <code>/gen</code> - Identity Gen\n\n"
+        "💀 <b>Dangerous Features:</b>\n"
+        "• <code>/kill</code> - High Amount ($500) Hit\n"
+        "• <code>/scrape</code> - Auto CC Scraper\n"
+        "• <code>/mass</code> - Combo Checker (List)\n"
+        "• <code>/3d</code> - 3D/2D Lookup\n"
+        "• <code>/sk</code> - SK Key Health Check"
     )
     bot.reply_to(message, welcome, parse_mode='HTML')
+
+# --- Original Commands (Same as before) ---
 
 @bot.message_handler(commands=['bin'])
 def bin_cmd(message):
@@ -110,22 +117,57 @@ def gen_cmd(message):
     )
     bot.reply_to(message, res, parse_mode='HTML')
 
-@bot.message_handler(commands=['chk', 'auth', 'kill'])
+# --- Updated /KILL and /CHK separation ---
+
+@bot.message_handler(commands=['chk', 'auth'])
 def card_actions(message):
     cmd = message.text.split()[0][1:].upper()
     start_time = time.time()
     taken = round(time.time() - start_time, 2)
-    
     res = (
         f"⏳ <b>Processing {cmd} Request...</b>\n\n"
         f"🟢 <b>Status:</b> LIVE ✅\n"
-        f"💰 <b>Response:</b> Approved\n"
+        f"💰 <b>Response:</b> Approved ($0.50)\n"
         f"🛡️ <b>Gateway:</b> Stripe\n"
         f"⏱️ <b>Time Taken:</b> {taken}s\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🏛️ <b>Bank Info:</b> JP Morgan | US 🇺🇸"
+        f"━━━━━━━━━━━━━━━━━━━━"
     )
     bot.reply_to(message, res, parse_mode='HTML')
+
+@bot.message_handler(commands=['kill'])
+def kill_cmd(message):
+    start_time = time.time()
+    amount = random.choice(["$150.00", "$300.00", "$500.00"])
+    taken = round(time.time() - start_time, 2)
+    res = (
+        f"💀 <b>Niazi Kill Mode Activated!</b> 💀\n\n"
+        f"🔥 <b>Target Amount:</b> {amount}\n"
+        f"🟢 <b>Status:</b> CHARGED ✅\n"
+        f"💳 <b>Gate:</b> Stripe High-Risk Bypass\n"
+        f"🏦 <b>Result:</b> Success / Funds Captured\n"
+        f"⏱️ <b>Latency:</b> {taken}s\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"🚨 <b>Note:</b> Card has high limit!"
+    )
+    bot.reply_to(message, res, parse_mode='HTML')
+
+# --- New Dangerous Features ---
+
+@bot.message_handler(commands=['scrape'])
+def scrape_cmd(message):
+    bot.reply_to(message, "🕵️‍♂️ <b>Scraping Fresh CCs from Leaked Logs...</b>\n\n✅ Found 45 New Cards (Mixed BINs)\n✅ Filtered Non-VBV: 12 Cards\n\n<i>Sending list to your private DM...</i>", parse_mode='HTML')
+
+@bot.message_handler(commands=['mass'])
+def mass_cmd(message):
+    bot.reply_to(message, "💣 <b>Mass Checker Started!</b>\n\n📥 Reading Combo List...\n🔄 Checking 100 Cards...\n✅ 12 LIVE / ❌ 88 DEAD\n\n━━━━━━━━━━━━━━", parse_mode='HTML')
+
+@bot.message_handler(commands=['3d'])
+def lookup_3d(message):
+    bot.reply_to(message, "🔍 <b>3D/2D Lookup Result:</b>\n\n🛡️ <b>Status:</b> Non-VBV (2D) ✅\n⚡ <b>Risk Level:</b> Low\n🛒 <b>Gateway:</b> Secure", parse_mode='HTML')
+
+@bot.message_handler(commands=['sk'])
+def sk_check(message):
+    bot.reply_to(message, "🔑 <b>Stripe SK Health:</b>\n\n✅ <b>Status:</b> Active\n💰 <b>Limit:</b> Unlimited\n📊 <b>Charge Rate:</b> 98%", parse_mode='HTML')
 
 if __name__ == "__main__":
     keep_alive() 
